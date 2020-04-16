@@ -1,37 +1,44 @@
-$samplescript = <<SCRIPT
-echo "192.168.56.102    web" >> /etc/hosts
-yum install -y git
-git clone https://github.com/ausard/module2.git
-cd module2
-git checkout task2
-cat test.txt
-ping -c 6 web
-SCRIPT
+$name_server1 = "server1"
+$name_server2 = "server2"
 
-Vagrant.configure(2) do |config|
+$ip_server1 = "192.168.3.4"
+$ip_server2 = "192.168.3.5"
 
-    config.vm.define "web" do |web|
-        web.vm.box = "centos/7"
-        web.vm.hostname = 'web'
+Vagrant.configure("2") do |config|
+
+
+
+    config.vm.provision "file", source: "id_rsa", destination: "/home/vagrant/.ssh/id_rsa"
+    public_key = File.read("id_rsa.pub")
+    config.vm.provision :shell, :inline =>"
+     echo 'Copying public SSH Key to the VM'
+     mkdir -p /home/vagrant/.ssh
+     chmod 700 /home/vagrant/.ssh
+     echo '#{public_key}' >> /home/vagrant/.ssh/authorized_keys
+     chmod -R 600 /home/vagrant/.ssh/authorized_keys
+     echo 'Host 192.168.3.*' >> /home/vagrant/.ssh/config
+     echo 'StrictHostKeyChecking no' >> /home/vagrant/.ssh/config
+     echo 'UserKnownHostsFile /dev/null' >> /home/vagrant/.ssh/config
+     chmod -R 600 /home/vagrant/.ssh/config
+     echo '#{$ip_server1}   #{$name_server1}' >> /etc/hosts
+     echo '#{$ip_server2}   #{$name_server2}' >> /etc/hosts
+     "
     
-        web.vm.network :private_network, ip: "192.168.56.102"
-
-        web.vm.provider :virtualbox do |vb|
-            vb.memory = "1024"
-            vb.cpus = "2"
-        end
+    config.vm.provider :virtualbox do |vb|
+      vb.memory = 256
+      vb.cpus = 1
     end
-
-    config.vm.define "githost" do |githost|
-        githost.vm.box = "centos/7"
-        githost.vm.hostname = 'githost'
     
-        githost.vm.network :private_network, ip: "192.168.56.101"
-        githost.vm.provision "shell", inline: $samplescript
-
-        githost.vm.provider :virtualbox do |vb|
-            vb.memory = "1024"
-            vb.cpus = "2"
-        end
+    config.vm.define $name_server1 do |srv1|
+        srv1.vm.hostname = $name_server1
+        srv1.vm.box = "centos/7"
+        srv1.vm.network :private_network, ip: $ip_server1
+        
+    end
+    
+    config.vm.define $name_server2 do |srv2|
+        srv2.vm.hostname = $name_server2
+        srv2.vm.box = "centos/7"
+        srv2.vm.network :private_network, ip: $ip_server2
     end
 end
